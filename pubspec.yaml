@@ -48,6 +48,7 @@ dependencies:
   file_picker: ^10.3.2
   pixelarticons: ^0.4.0
   shared_preferences: ^2.5.3
+  window_manager: ^0.5.1
 
 dev_dependencies:
   flutter_test:
@@ -73,8 +74,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+    - assets/background.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -83,11 +84,6 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
-  # To add custom fonts/Users/kalistratovm/Downloads/Cinzel/Cinzel.ttf to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
   fonts:
     - family: Cinzel
       fonts:

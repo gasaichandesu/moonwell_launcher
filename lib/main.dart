@@ -7,9 +7,26 @@ import 'package:flutter/foundation.dart'
 import 'package:moonwell_launcher/app/mw_app.dart';
 import 'package:moonwell_launcher/app/theme/mw_theme.dart';
 import 'package:moonwell_launcher/service_container.dart';
+import 'package:window_manager/window_manager.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+
+  WindowOptions windowOptions = WindowOptions(
+    size: Size(960, 540),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.hidden,
+  );
+
+  unawaited(
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    }),
+  );
 
   await configureDependencies(env: 'flutter');
 

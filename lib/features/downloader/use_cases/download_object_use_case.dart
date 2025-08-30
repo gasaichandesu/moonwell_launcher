@@ -47,7 +47,7 @@ class DownloadObjectUseCase
     );
     final total = meta.size;
 
-    final pathToFile = '${request.destinationPath}/${Config.objectName}';
+    final pathToFile = '${request.destinationPath}${Config.objectName}';
 
     await _fileSystem.ensureParentExists(pathToFile);
 

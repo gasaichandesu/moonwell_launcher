@@ -19,6 +19,18 @@ final class HomeScreenDownloadPausedState extends HomeScreenState {
   const HomeScreenDownloadPausedState({required super.model});
 }
 
+final class HomeScreenDownloadInitializing extends HomeScreenState {
+  const HomeScreenDownloadInitializing({required super.model});
+}
+
 final class HomeScreenDownloadingState extends HomeScreenState {
   const HomeScreenDownloadingState({required super.model});
+}
+
+final class HomeScreenOutputDirSelectionState extends HomeScreenState {
+  const HomeScreenOutputDirSelectionState({required super.model});
+}
+
+final class HomeScreenReadyToPlayState extends HomeScreenState {
+  const HomeScreenReadyToPlayState({required super.model});
 }

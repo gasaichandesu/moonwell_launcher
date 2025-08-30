@@ -35,12 +35,8 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
   void _setupHandlers() {
     on<HomeScreenLoad>(_onHomeScreenLoad);
     on<HomeScreenDownloadRequested>(_onHomeScreenDownloadRequested);
-
-    on<HomeScreenDownloadPaused>((event, emit) {
-      // _downloadManager.pauseDownload();
-      // emit(HomeScreenDownloadPausedState());
-    });
-
+    on<HomeScreenDownloadPaused>(_onHomeScreenDownloadPaused);
+    on<HomeScreenOutputDirRequested>(_onHomeOutputDirRequested);
     on<HomeScreenDownloadProgressUpdated>(
       _onHomeScreenDownloadProgressUpdated,
       transformer: (events, mapper) =>
@@ -66,21 +62,8 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
     Emitter<HomeScreenState> emit,
   ) async {
     if (state.model.outputPath == null) {
-      final directory = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Please select installation directory',
-      );
-
-      if (directory == null) {
-        return;
-      }
-
-      await _preferencesRepository.setOutputDir(Uri.directory(directory));
-
-      emit(
-        HomeScreenReadyToDownloadState(
-          model: state.model.copyWith(outputPath: Uri.directory(directory)),
-        ),
-      );
+      emit(HomeScreenOutputDirSelectionState(model: state.model.copyWith()));
+      return;
     }
 
     _downloadProgressSubscription = _downloadManager
@@ -91,6 +74,8 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
           ),
         )
         .listen((progress) => add(HomeScreenDownloadProgressUpdated(progress)));
+
+    emit(HomeScreenDownloadInitializing(model: state.model.copyWith()));
   }
 
   void _onHomeScreenDownloadProgressUpdated(
@@ -110,5 +95,37 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
     await _downloadManager.cancel(_downloadId);
 
     return super.close();
+  }
+
+  FutureOr<void> _onHomeScreenDownloadPaused(
+    HomeScreenDownloadPaused event,
+    Emitter<HomeScreenState> emit,
+  ) async {
+    await _downloadManager.pause(_downloadId);
+
+    emit(HomeScreenDownloadPausedState(model: state.model.copyWith()));
+  }
+
+  FutureOr<void> _onHomeOutputDirRequested(
+    HomeScreenOutputDirRequested event,
+    Emitter<HomeScreenState> emit,
+  ) async {
+    emit(HomeScreenReadyToDownloadState(model: state.model.copyWith()));
+
+    final directory = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Please select installation directory',
+    );
+
+    if (directory == null) {
+      return;
+    }
+
+    await _preferencesRepository.setOutputDir(Uri.directory(directory));
+
+    emit(
+      HomeScreenReadyToDownloadState(
+        model: state.model.copyWith(outputPath: Uri.directory(directory)),
+      ),
+    );
   }
 }

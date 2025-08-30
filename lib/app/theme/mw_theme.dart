@@ -81,7 +81,7 @@ ThemeData moonWellTheme() {
     ),
 
     cardTheme: CardThemeData(
-      color: cs.surface,
+      color: cs.surface.withAlpha(50),
       elevation: 0,
       margin: const EdgeInsets.all(12),
       shape: RoundedRectangleBorder(
@@ -98,6 +98,9 @@ ThemeData moonWellTheme() {
         ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        textStyle: WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Cinzel'),
         ),
         elevation: const WidgetStatePropertyAll(6),
         shadowColor: WidgetStatePropertyAll(MWColors.moonBlue.withAlpha(89)),
@@ -138,7 +141,18 @@ ThemeData moonWellTheme() {
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        foregroundColor: WidgetStatePropertyAll(cs.primary),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return cs.primary.withAlpha(100);
+          }
+          return cs.primary;
+        }),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return MWColors.stormNavy.withAlpha(100);
+          }
+          return MWColors.stormNavy;
+        }),
       ),
     ),
 
