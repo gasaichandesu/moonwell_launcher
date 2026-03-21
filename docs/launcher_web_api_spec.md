@@ -110,6 +110,21 @@ Cache reuse rule:
 The cache is an optimization only. The server remains the source of truth via
 the manifest comparison.
 
+## Diagnostics
+
+During sync, the launcher writes a log file to:
+
+- `<install-root>/.moonwell_launcher/launcher.log`
+
+If an installation directory is not available yet, the launcher falls back to a
+temporary system log directory.
+
+For failed downloads:
+
+- HTTP and storage download failures are logged with file path and status code
+- checksum mismatches log expected and actual `size` and `sha256`
+- invalid payloads are preserved as `*.moonwell.part.failed` for inspection
+
 ## buildHash Algorithm
 
 `buildHash` is deterministic and calculated identically for local snapshot and
@@ -173,6 +188,7 @@ The launcher surfaces errors for:
 - manifest load failure
 - path traversal attempts
 - checksum mismatch after download
+- missing downloaded temp files before verification
 - final verification mismatch after update
 - missing `Wow.exe`
 

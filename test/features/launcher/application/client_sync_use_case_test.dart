@@ -6,10 +6,12 @@ import 'package:moonwell_launcher/features/downloader/domain/entities/download_p
 import 'package:moonwell_launcher/features/launcher/application/client_sync_use_case.dart';
 import 'package:moonwell_launcher/features/launcher/data/game_installation_service.dart';
 import 'package:moonwell_launcher/features/launcher/data/launcher_api_client.dart';
+import 'package:moonwell_launcher/features/launcher/data/launcher_log_service.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_installation_snapshot.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest_file.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_sync_status.dart';
+import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_exception.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/local_client_file.dart';
 
 void main() {
@@ -42,9 +44,11 @@ void main() {
         final installationService = _FakeGameInstallationService([
           matchingSnapshot,
         ]);
+        final logger = _FakeLauncherLogService();
         final useCase = ClientSyncUseCase(
           launcherApiClient: api,
           installationService: installationService,
+          launcherLogService: logger,
         );
 
         final statuses = await useCase
@@ -63,6 +67,7 @@ void main() {
         expect(statuses.last.message, 'Client is up to date.');
         expect(api.downloadedPaths, isEmpty);
         expect(installationService.deletedRelativeFiles, isEmpty);
+        expect(logger.errorMessages, isEmpty);
       },
     );
 
@@ -95,13 +100,20 @@ void main() {
         ]);
 
         final api = _FakeLauncherApiClient(manifest);
-        final installationService = _FakeGameInstallationService([
-          initialSnapshot,
-          verifiedSnapshot,
-        ]);
+        final installationService =
+            _FakeGameInstallationService([initialSnapshot, verifiedSnapshot])
+              ..fileSizesByPath['C:/MoonWell/Wow.exe.moonwell.part'] = 5
+              ..computedHashesByPath['C:/MoonWell/Wow.exe.moonwell.part'] =
+                  'wow-hash'
+              ..fileSizesByPath['C:/MoonWell/Data/common.MPQ.moonwell.part'] =
+                  10
+              ..computedHashesByPath['C:/MoonWell/Data/common.MPQ.moonwell.part'] =
+                  'data-hash';
+        final logger = _FakeLauncherLogService();
         final useCase = ClientSyncUseCase(
           launcherApiClient: api,
           installationService: installationService,
+          launcherLogService: logger,
         );
 
         final statuses = await useCase
@@ -128,6 +140,66 @@ void main() {
         expect(installationService.deletedRelativeFiles, ['legacy.txt']);
         expect(api.downloadedPaths, ['Wow.exe', 'Data/common.MPQ']);
         expect(statuses.last.message, 'Client is ready to play.');
+        expect(logger.errorMessages, isEmpty);
+      },
+    );
+
+    test(
+      'preserves failed temporary file and returns a log hint on verification mismatch',
+      () async {
+        final manifest = _manifestFromFiles([
+          const ClientManifestFile(
+            path: 'Data/ruRU/realmlist.wtf',
+            size: 12,
+            sha256: 'expected-sha',
+          ),
+        ]);
+        final initialSnapshot = ClientInstallationSnapshot.fromFiles(const []);
+        final installationService =
+            _FakeGameInstallationService([initialSnapshot])
+              ..fileSizesByPath['C:/MoonWell/Data/ruRU/realmlist.wtf.moonwell.part'] =
+                  12
+              ..computedHashesByPath['C:/MoonWell/Data/ruRU/realmlist.wtf.moonwell.part'] =
+                  'actual-sha';
+        final logger = _FakeLauncherLogService();
+        final useCase = ClientSyncUseCase(
+          launcherApiClient: _FakeLauncherApiClient(manifest),
+          installationService: installationService,
+          launcherLogService: logger,
+        );
+
+        final future = useCase
+            .call(
+              ClientSyncUseCaseInput(
+                request: ClientSyncRequest(
+                  installationDir: 'C:/MoonWell',
+                  accessToken: 'token',
+                  manifest: manifest,
+                ),
+              ),
+            )
+            .drain<void>();
+
+        await expectLater(
+          future,
+          throwsA(
+            isA<LauncherSyncException>().having(
+              (error) => error.message,
+              'message',
+              contains(
+                'Downloaded file failed verification: Data/ruRU/realmlist.wtf. '
+                'See .moonwell_launcher/launcher.log.',
+              ),
+            ),
+          ),
+        );
+        expect(installationService.preservedFailedDownloads, [
+          'C:/MoonWell/Data/ruRU/realmlist.wtf.moonwell.part',
+        ]);
+        expect(
+          logger.errorMessages,
+          contains('Downloaded file failed verification.'),
+        );
       },
     );
   });
@@ -158,6 +230,7 @@ class _FakeLauncherApiClient extends LauncherApiClient {
 
   @override
   Future<void> downloadFile({
+    required String installationDir,
     required String accessToken,
     required ClientManifestFile file,
     required String destinationPath,
@@ -178,6 +251,9 @@ class _FakeGameInstallationService extends GameInstallationService {
   final List<String> deletedRelativeFiles = [];
   final List<String> deletedFiles = [];
   final List<String> replacedDestinations = [];
+  final List<String> preservedFailedDownloads = [];
+  final Map<String, String> computedHashesByPath = {};
+  final Map<String, int?> fileSizesByPath = {};
 
   @override
   Future<ClientInstallationSnapshot> scanInstallation(
@@ -232,7 +308,20 @@ class _FakeGameInstallationService extends GameInstallationService {
   }
 
   @override
-  Future<bool> verifySha256(String filePath, String expectedHash) async => true;
+  Future<String> computeSha256(String filePath) async {
+    return computedHashesByPath[filePath] ?? 'computed-hash';
+  }
+
+  @override
+  Future<int?> getFileSizeIfExists(String filePath) async {
+    return fileSizesByPath[filePath];
+  }
+
+  @override
+  Future<String?> preserveFailedDownload(String temporaryPath) async {
+    preservedFailedDownloads.add(temporaryPath);
+    return '$temporaryPath.failed';
+  }
 
   @override
   Future<void> replaceFile({
@@ -240,5 +329,30 @@ class _FakeGameInstallationService extends GameInstallationService {
     required String destinationPath,
   }) async {
     replacedDestinations.add(destinationPath);
+  }
+}
+
+class _FakeLauncherLogService extends LauncherLogService {
+  final List<String> infoMessages = [];
+  final List<String> errorMessages = [];
+
+  @override
+  Future<void> info(
+    String message, {
+    String? installationDir,
+    Map<String, Object?> details = const <String, Object?>{},
+  }) async {
+    infoMessages.add(message);
+  }
+
+  @override
+  Future<void> error(
+    String message, {
+    String? installationDir,
+    Map<String, Object?> details = const <String, Object?>{},
+    Object? error,
+    StackTrace? stackTrace,
+  }) async {
+    errorMessages.add(message);
   }
 }

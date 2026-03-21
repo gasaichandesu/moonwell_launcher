@@ -138,6 +138,20 @@ void main() {
       );
     });
 
+    test('preserveFailedDownload renames temp file to failed artifact', () async {
+      final temporaryPath =
+          '${rootDirectory.path}${Platform.pathSeparator}Data${Platform.pathSeparator}broken.MPQ.moonwell.part';
+      final temporaryFile = File(temporaryPath);
+      await temporaryFile.parent.create(recursive: true);
+      await temporaryFile.writeAsString('broken');
+
+      final preservedPath = await service.preserveFailedDownload(temporaryPath);
+
+      expect(preservedPath, '$temporaryPath.failed');
+      expect(await temporaryFile.exists(), isFalse);
+      expect(await File('$temporaryPath.failed').exists(), isTrue);
+    });
+
     test('resolveClientPath rejects path traversal', () {
       expect(
         () => service.resolveClientPath(rootDirectory.path, '../evil.txt'),

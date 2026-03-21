@@ -242,6 +242,13 @@ class GameInstallationService {
     );
   }
 
+  String getLauncherLogPath(String installationDir) {
+    return p.join(
+      getLauncherMetadataDirectoryPath(installationDir),
+      Config.launcherLogFileName,
+    );
+  }
+
   String getExecutablePath(String installationDir) {
     return p.join(installationDir, Config.gameExecutableName);
   }
@@ -284,6 +291,33 @@ class GameInstallationService {
     } catch (_) {
       return const <String, Object?>{};
     }
+  }
+
+  Future<int?> getFileSizeIfExists(String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      return null;
+    }
+
+    return file.stat().then((stat) => stat.size);
+  }
+
+  Future<String?> preserveFailedDownload(String temporaryPath) async {
+    final temporaryFile = File(temporaryPath);
+    if (!await temporaryFile.exists()) {
+      return null;
+    }
+
+    final preservedPath = '$temporaryPath.failed';
+    final preservedFile = File(preservedPath);
+    await preservedFile.parent.create(recursive: true);
+
+    if (await preservedFile.exists()) {
+      await preservedFile.delete();
+    }
+
+    await temporaryFile.rename(preservedPath);
+    return preservedPath;
   }
 }
 

@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 import 'package:moonwell_launcher/config.dart';
 import 'package:moonwell_launcher/features/downloader/domain/entities/download_exceptions.dart';
+import 'package:moonwell_launcher/features/launcher/data/launcher_log_service.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest_file.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_exception.dart';
@@ -12,8 +14,9 @@ import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_ses
 
 @lazySingleton
 class LauncherApiClient {
-  LauncherApiClient()
-    : _dio = Dio(
+  LauncherApiClient({LauncherLogService? launcherLogService})
+    : _launcherLogService = launcherLogService ?? LauncherLogService(),
+      _dio = Dio(
         BaseOptions(
           connectTimeout: const Duration(seconds: 30),
           sendTimeout: const Duration(seconds: 30),
@@ -23,52 +26,121 @@ class LauncherApiClient {
       );
 
   final Dio _dio;
+  final LauncherLogService _launcherLogService;
 
   Future<LauncherSession> login({
     required String username,
     required String password,
   }) async {
+    final loginUri = _resolveUri('api/launcher/login');
+
     try {
       final response = await _dio.postUri(
-        _resolveUri('api/launcher/login'),
+        loginUri,
         data: {'username': username, 'password': password},
       );
 
       return LauncherSession.fromJson(_coerceMap(response.data));
-    } on DioException catch (error) {
+    } on DioException catch (error, stackTrace) {
+      await _launcherLogService.error(
+        'Launcher login request failed.',
+        details: <String, Object?>{
+          'endpoint': loginUri.toString(),
+          'statusCode': error.response?.statusCode,
+          'dioType': error.type.name,
+          'responseBody': _summarizePayload(error.response?.data),
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
       throw LauncherApiException(_extractErrorMessage(error));
     }
   }
 
   Future<ClientManifest> fetchManifest(String accessToken) async {
+    final manifestUri = _resolveUri('api/launcher/manifest');
+
     try {
       final response = await _dio.getUri(
-        _resolveUri('api/launcher/manifest'),
+        manifestUri,
         options: _authorizedOptions(accessToken),
       );
 
       return ClientManifest.fromJson(_coerceMap(response.data));
-    } on DioException catch (error) {
+    } on DioException catch (error, stackTrace) {
+      await _launcherLogService.error(
+        'Launcher manifest request failed.',
+        details: <String, Object?>{
+          'endpoint': manifestUri.toString(),
+          'statusCode': error.response?.statusCode,
+          'dioType': error.type.name,
+          'responseBody': _summarizePayload(error.response?.data),
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
       throw LauncherApiException(_extractErrorMessage(error));
     }
   }
 
   Future<void> downloadFile({
+    required String installationDir,
     required String accessToken,
     required ClientManifestFile file,
     required String destinationPath,
     required FutureOr<bool> Function()? isCancelled,
     required void Function(int chunkBytes) onChunkReceived,
   }) async {
+    final downloadLinkUri = _resolveUri(
+      'api/launcher/download/${Uri.encodeComponent(file.path)}',
+    );
+    Uri? downloadUri;
+
     try {
       final downloadLinkResponse = await _dio.getUri(
-        _resolveUri('api/launcher/download/${Uri.encodeComponent(file.path)}'),
+        downloadLinkUri,
         options: _authorizedOptions(accessToken),
       );
-      final downloadUri = _extractDownloadUri(
-        _coerceMap(downloadLinkResponse.data),
+      downloadUri = _extractDownloadUri(_coerceMap(downloadLinkResponse.data));
+    } on DioException catch (error, stackTrace) {
+      await _launcherLogService.error(
+        'Failed to resolve presigned download URL.',
+        installationDir: installationDir,
+        details: <String, Object?>{
+          'filePath': file.path,
+          'endpoint': downloadLinkUri.toString(),
+          'statusCode': error.response?.statusCode,
+          'dioType': error.type.name,
+          'responseBody': _summarizePayload(error.response?.data),
+        },
+        error: error,
+        stackTrace: stackTrace,
       );
+      throw LauncherApiException(
+        _buildDownloadErrorMessage(
+          error: error,
+          filePath: file.path,
+          logHint: _launcherLogService.logHint(installationDir),
+          stage: 'resolve download link for',
+        ),
+      );
+    } on LauncherApiException catch (error, stackTrace) {
+      await _launcherLogService.error(
+        'Launcher API returned an invalid presigned download payload.',
+        installationDir: installationDir,
+        details: <String, Object?>{
+          'filePath': file.path,
+          'endpoint': downloadLinkUri.toString(),
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw LauncherApiException(
+        '${error.message} See ${_launcherLogService.logHint(installationDir)}.',
+      );
+    }
 
+    try {
       final response = await _dio.getUri<ResponseBody>(
         downloadUri,
         options: Options(
@@ -98,8 +170,58 @@ class LauncherApiClient {
       } finally {
         await sink.close();
       }
-    } on DioException catch (error) {
-      throw LauncherApiException(_extractErrorMessage(error));
+    } on DioException catch (error, stackTrace) {
+      await _launcherLogService.error(
+        'Failed to download file payload.',
+        installationDir: installationDir,
+        details: <String, Object?>{
+          'filePath': file.path,
+          'downloadUrl': downloadUri.replace(query: '').toString(),
+          'statusCode': error.response?.statusCode,
+          'dioType': error.type.name,
+          'responseBody': _summarizePayload(error.response?.data),
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw LauncherApiException(
+        _buildDownloadErrorMessage(
+          error: error,
+          filePath: file.path,
+          logHint: _launcherLogService.logHint(installationDir),
+          stage: 'download',
+        ),
+      );
+    } on LauncherApiException catch (error, stackTrace) {
+      await _launcherLogService.error(
+        'Downloaded file payload was invalid.',
+        installationDir: installationDir,
+        details: <String, Object?>{
+          'filePath': file.path,
+          'downloadUrl': downloadUri.replace(query: '').toString(),
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw LauncherApiException(
+        '${error.message} See ${_launcherLogService.logHint(installationDir)}.',
+      );
+    } on FileSystemException catch (error, stackTrace) {
+      await _launcherLogService.error(
+        'Failed to write downloaded file to disk.',
+        installationDir: installationDir,
+        details: <String, Object?>{
+          'filePath': file.path,
+          'destinationPath': destinationPath,
+          'downloadUrl': downloadUri.replace(query: '').toString(),
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw LauncherSyncException(
+        'Failed to write downloaded file: ${file.path}. '
+        'See ${_launcherLogService.logHint(installationDir)}.',
+      );
     }
   }
 
@@ -179,6 +301,56 @@ class LauncherApiClient {
     }
 
     return error.message ?? 'Launcher API request failed.';
+  }
+
+  String _buildDownloadErrorMessage({
+    required DioException error,
+    required String filePath,
+    required String logHint,
+    required String stage,
+  }) {
+    final statusCode = error.response?.statusCode;
+
+    if (statusCode == HttpStatus.notFound) {
+      return 'File not found on the server: $filePath. See $logHint.';
+    }
+
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.error is SocketException) {
+      return 'Network error while trying to $stage file: $filePath. '
+          'See $logHint.';
+    }
+
+    return 'Failed to $stage file: $filePath. See $logHint.';
+  }
+
+  String? _summarizePayload(Object? data) {
+    if (data == null) {
+      return null;
+    }
+
+    final serialized = switch (data) {
+      String value => value,
+      Map() || List() => _safeJsonEncode(data),
+      _ => data.toString(),
+    };
+
+    const maxLength = 1000;
+    if (serialized.length <= maxLength) {
+      return serialized;
+    }
+
+    return '${serialized.substring(0, maxLength)}...';
+  }
+
+  String _safeJsonEncode(Object? value) {
+    try {
+      return jsonEncode(value);
+    } catch (_) {
+      return value.toString();
+    }
   }
 
   Uri _extractDownloadUri(Map<String, dynamic> payload) {

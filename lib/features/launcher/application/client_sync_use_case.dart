@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:injectable/injectable.dart';
 import 'package:moonwell_launcher/core/use_case.dart';
@@ -6,6 +7,7 @@ import 'package:moonwell_launcher/features/downloader/domain/entities/download_e
 import 'package:moonwell_launcher/features/downloader/domain/entities/download_progress.dart';
 import 'package:moonwell_launcher/features/launcher/data/game_installation_service.dart';
 import 'package:moonwell_launcher/features/launcher/data/launcher_api_client.dart';
+import 'package:moonwell_launcher/features/launcher/data/launcher_log_service.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_installation_snapshot.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest_file.dart';
@@ -37,11 +39,14 @@ class ClientSyncUseCase
   ClientSyncUseCase({
     required LauncherApiClient launcherApiClient,
     required GameInstallationService installationService,
+    LauncherLogService? launcherLogService,
   }) : _launcherApiClient = launcherApiClient,
-       _installationService = installationService;
+       _installationService = installationService,
+       _launcherLogService = launcherLogService ?? LauncherLogService();
 
   final LauncherApiClient _launcherApiClient;
   final GameInstallationService _installationService;
+  final LauncherLogService _launcherLogService;
 
   @override
   Stream<ClientSyncStatus> call(ClientSyncUseCaseInput input) {
@@ -54,7 +59,18 @@ class ClientSyncUseCase
     ClientSyncUseCaseInput input,
     StreamController<ClientSyncStatus> controller,
   ) async {
+    String? remoteBuildHash;
+
     try {
+      await _launcherLogService.info(
+        'Starting client sync.',
+        installationDir: input.request.installationDir,
+        details: <String, Object?>{
+          'installationDir': input.request.installationDir,
+          'manifestProvided': input.request.manifest != null,
+        },
+      );
+
       await _throwIfCancelled(input.isCancelled);
 
       _emit(
@@ -74,7 +90,7 @@ class ClientSyncUseCase
       final manifest =
           input.request.manifest ??
           await _launcherApiClient.fetchManifest(input.request.accessToken);
-      final remoteBuildHash = manifest.buildHash;
+      remoteBuildHash = manifest.buildHash;
 
       final localSnapshot = await _installationService.scanInstallation(
         input.request.installationDir,
@@ -190,7 +206,18 @@ class ClientSyncUseCase
       _ensureVerificationPassed(
         manifest: manifest,
         snapshot: verifiedSnapshot,
+        installationDir: input.request.installationDir,
         remoteBuildHash: remoteBuildHash,
+      );
+
+      await _launcherLogService.info(
+        'Client sync completed successfully.',
+        installationDir: input.request.installationDir,
+        details: <String, Object?>{
+          'localBuildHash': verifiedSnapshot.buildHash,
+          'remoteBuildHash': remoteBuildHash,
+          'fileCount': manifest.files.length,
+        },
       );
 
       _emit(
@@ -207,6 +234,22 @@ class ClientSyncUseCase
         ),
       );
     } catch (error, stackTrace) {
+      if (error is CancelledException) {
+        await _launcherLogService.info(
+          'Client sync cancelled.',
+          installationDir: input.request.installationDir,
+          details: <String, Object?>{'remoteBuildHash': remoteBuildHash},
+        );
+      } else {
+        await _launcherLogService.error(
+          'Client sync failed.',
+          installationDir: input.request.installationDir,
+          details: <String, Object?>{'remoteBuildHash': remoteBuildHash},
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+
       if (!controller.isClosed) {
         controller.addError(error, stackTrace);
       }
@@ -349,38 +392,52 @@ class ClientSyncUseCase
         );
         final temporaryPath = '$destinationPath.moonwell.part';
 
-        await _installationService.ensureParentDirectoryExists(temporaryPath);
-        await _installationService.deleteFileIfExists(temporaryPath);
-
-        await _launcherApiClient.downloadFile(
-          accessToken: accessToken,
-          file: file,
-          destinationPath: temporaryPath,
-          isCancelled: isCancelled,
-          onChunkReceived: (chunkBytes) {
-            downloadedBytes += chunkBytes;
-            bytesSinceLastTick += chunkBytes;
-          },
-        );
-
-        final isValid = await _installationService.verifySha256(
-          temporaryPath,
-          file.sha256,
-        );
-        if (!isValid) {
+        try {
+          await _installationService.ensureParentDirectoryExists(temporaryPath);
           await _installationService.deleteFileIfExists(temporaryPath);
+
+          await _launcherApiClient.downloadFile(
+            installationDir: installationDir,
+            accessToken: accessToken,
+            file: file,
+            destinationPath: temporaryPath,
+            isCancelled: isCancelled,
+            onChunkReceived: (chunkBytes) {
+              downloadedBytes += chunkBytes;
+              bytesSinceLastTick += chunkBytes;
+            },
+          );
+
+          await _verifyDownloadedFile(
+            installationDir: installationDir,
+            file: file,
+            temporaryPath: temporaryPath,
+          );
+
+          await _installationService.replaceFile(
+            temporaryPath: temporaryPath,
+            destinationPath: destinationPath,
+          );
+
+          processedFiles += 1;
+          emitProgress();
+        } on FileSystemException catch (error, stackTrace) {
+          await _launcherLogService.error(
+            'Local file operation failed during sync.',
+            installationDir: installationDir,
+            details: <String, Object?>{
+              'filePath': file.path,
+              'destinationPath': destinationPath,
+              'temporaryPath': temporaryPath,
+            },
+            error: error,
+            stackTrace: stackTrace,
+          );
           throw LauncherSyncException(
-            'Downloaded file failed verification: ${file.path}',
+            'Failed to update local file: ${file.path}. '
+            'See ${_launcherLogService.logHint(installationDir)}.',
           );
         }
-
-        await _installationService.replaceFile(
-          temporaryPath: temporaryPath,
-          destinationPath: destinationPath,
-        );
-
-        processedFiles += 1;
-        emitProgress();
       }
     } finally {
       ticker.cancel();
@@ -390,6 +447,7 @@ class ClientSyncUseCase
   void _ensureVerificationPassed({
     required ClientManifest manifest,
     required ClientInstallationSnapshot snapshot,
+    required String installationDir,
     required String remoteBuildHash,
   }) {
     final localFilesByPath = snapshot.filesByPath;
@@ -408,8 +466,87 @@ class ClientSyncUseCase
     if (snapshot.buildHash != remoteBuildHash ||
         mismatchedFiles.isNotEmpty ||
         extraFiles.isNotEmpty) {
-      throw LauncherSyncException('Client verification failed after update.');
+      unawaited(
+        _launcherLogService.error(
+          'Final client verification failed after update.',
+          installationDir: installationDir,
+          details: <String, Object?>{
+            'localBuildHash': snapshot.buildHash,
+            'remoteBuildHash': remoteBuildHash,
+            'mismatchedFiles': mismatchedFiles
+                .map((file) => file.path)
+                .take(10)
+                .toList(),
+            'extraFiles': extraFiles.map((file) => file.path).take(10).toList(),
+          },
+        ),
+      );
+
+      final firstProblemPath = mismatchedFiles.isNotEmpty
+          ? mismatchedFiles.first.path
+          : extraFiles.first.path;
+      throw LauncherSyncException(
+        'Client verification failed after update: $firstProblemPath. '
+        'See ${_launcherLogService.logHint(installationDir)}.',
+      );
     }
+  }
+
+  Future<void> _verifyDownloadedFile({
+    required String installationDir,
+    required ClientManifestFile file,
+    required String temporaryPath,
+  }) async {
+    final actualSize = await _installationService.getFileSizeIfExists(
+      temporaryPath,
+    );
+    if (actualSize == null) {
+      await _launcherLogService.error(
+        'Downloaded file is missing before verification.',
+        installationDir: installationDir,
+        details: <String, Object?>{
+          'filePath': file.path,
+          'temporaryPath': temporaryPath,
+          'expectedSize': file.size,
+          'expectedSha256': file.sha256,
+        },
+      );
+      throw LauncherSyncException(
+        'Downloaded file is missing: ${file.path}. '
+        'See ${_launcherLogService.logHint(installationDir)}.',
+      );
+    }
+
+    final actualSha256 = await _installationService.computeSha256(
+      temporaryPath,
+    );
+    final expectedSha256 = file.sha256.toLowerCase();
+    final normalizedActualSha256 = actualSha256.toLowerCase();
+
+    if (actualSize == file.size && normalizedActualSha256 == expectedSha256) {
+      return;
+    }
+
+    final preservedPath = await _installationService.preserveFailedDownload(
+      temporaryPath,
+    );
+    await _launcherLogService.error(
+      'Downloaded file failed verification.',
+      installationDir: installationDir,
+      details: <String, Object?>{
+        'filePath': file.path,
+        'temporaryPath': temporaryPath,
+        'preservedPath': preservedPath,
+        'expectedSize': file.size,
+        'actualSize': actualSize,
+        'expectedSha256': file.sha256,
+        'actualSha256': actualSha256,
+      },
+    );
+    throw LauncherSyncException(
+      'Downloaded file failed verification: ${file.path}. '
+      'See ${_launcherLogService.logHint(installationDir)}.',
+    );
   }
 
   String _buildComparisonMessage({
