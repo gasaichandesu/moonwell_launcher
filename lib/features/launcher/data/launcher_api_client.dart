@@ -61,10 +61,17 @@ class LauncherApiClient {
     required void Function(int chunkBytes) onChunkReceived,
   }) async {
     try {
-      final response = await _dio.getUri<ResponseBody>(
+      final downloadLinkResponse = await _dio.getUri(
         _resolveUri('api/launcher/download/${Uri.encodeComponent(file.path)}'),
-        options: _authorizedOptions(
-          accessToken,
+        options: _authorizedOptions(accessToken),
+      );
+      final downloadUri = _extractDownloadUri(
+        _coerceMap(downloadLinkResponse.data),
+      );
+
+      final response = await _dio.getUri<ResponseBody>(
+        downloadUri,
+        options: Options(
           responseType: ResponseType.stream,
           headers: const {HttpHeaders.acceptHeader: 'application/octet-stream'},
         ),
@@ -172,5 +179,23 @@ class LauncherApiClient {
     }
 
     return error.message ?? 'Launcher API request failed.';
+  }
+
+  Uri _extractDownloadUri(Map<String, dynamic> payload) {
+    final rawUrl = payload['url'];
+    if (rawUrl is! String || rawUrl.trim().isEmpty) {
+      throw const LauncherApiException(
+        'Launcher API did not return a valid download URL.',
+      );
+    }
+
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw const LauncherApiException(
+        'Launcher API returned an invalid presigned download URL.',
+      );
+    }
+
+    return uri;
   }
 }

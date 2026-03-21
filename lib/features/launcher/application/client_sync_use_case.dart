@@ -349,6 +349,7 @@ class ClientSyncUseCase
         );
         final temporaryPath = '$destinationPath.moonwell.part';
 
+        await _installationService.ensureParentDirectoryExists(temporaryPath);
         await _installationService.deleteFileIfExists(temporaryPath);
 
         await _launcherApiClient.downloadFile(

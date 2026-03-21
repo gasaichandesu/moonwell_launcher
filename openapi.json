@@ -1,0 +1,299 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Moonwell Launcher API",
+        "description": "API для лаунчера WoW-клиента Moonwell. Авторизация, получение манифеста файлов и скачивание обновлений.",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/launcher/login": {
+            "post": {
+                "tags": [
+                    "Launcher Auth"
+                ],
+                "summary": "Авторизация лаунчера",
+                "description": "Авторизация по логину и паролю игрового аккаунта. Возвращает Bearer-токен для доступа к API.",
+                "operationId": "8b934358769733a6925c1fbc8dc07705",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "username",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "username": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9]+$",
+                                        "example": "Player",
+                                        "maxLength": 32,
+                                        "minLength": 3
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "secret123",
+                                        "maxLength": 32,
+                                        "minLength": 3
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Успешная авторизация",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "access_token": {
+                                            "description": "JWT access token",
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string",
+                                            "example": "Bearer"
+                                        },
+                                        "expires_at": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "example": "2026-04-20T13:00:00+00:00"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Неверный логин или пароль",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Неверный логин или пароль."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Ошибка валидации",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Слишком много запросов"
+                    }
+                }
+            }
+        },
+        "/api/launcher/manifest": {
+            "get": {
+                "tags": [
+                    "Launcher"
+                ],
+                "summary": "Получить манифест файлов клиента",
+                "description": "Возвращает JSON-манифест со списком файлов клиента, их размерами и SHA-256 хешами. Лаунчер сверяет локальные файлы с манифестом и докачивает недостающие.",
+                "operationId": "2c449e4bb08c2d4c838e36d260a3b61d",
+                "responses": {
+                    "200": {
+                        "description": "Манифест файлов",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "files": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "path": {
+                                                        "type": "string",
+                                                        "example": "Data/common.MPQ"
+                                                    },
+                                                    "size": {
+                                                        "type": "integer",
+                                                        "format": "int64",
+                                                        "example": 2881154862
+                                                    },
+                                                    "sha256": {
+                                                        "type": "string",
+                                                        "format": "hex",
+                                                        "example": "d850ffa5efd6a1ba845899a7d9f9ad27f6eea7ac606e95033506c72c86ee0236"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Манифест не найден в хранилище",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Манифест не найден."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/launcher/download/{path}": {
+            "get": {
+                "tags": [
+                    "Launcher"
+                ],
+                "summary": "Получить ссылку на скачивание файла",
+                "description": "Возвращает временную presigned-ссылку на файл в S3. Лаунчер скачивает файл напрямую из хранилища по этой ссылке. Путь может содержать вложенные директории (например `Data/ruRU/patch-ruRU-3.MPQ`).",
+                "operationId": "9a94331833a7af795c1c57dfa3a77eb3",
+                "parameters": [
+                    {
+                        "name": "path",
+                        "in": "path",
+                        "description": "Относительный путь к файлу из манифеста",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "Data/common.MPQ"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Временная ссылка на скачивание",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "url": {
+                                            "description": "Presigned URL для скачивания",
+                                            "type": "string",
+                                            "format": "uri"
+                                        },
+                                        "expires_in": {
+                                            "description": "Время жизни ссылки в секундах",
+                                            "type": "integer",
+                                            "example": 3600
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Файл не найден",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Файл не найден."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Токен, полученный через POST /api/launcher/login",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Launcher Auth",
+            "description": "Launcher Auth"
+        },
+        {
+            "name": "Launcher",
+            "description": "Launcher"
+        }
+    ]
+}
