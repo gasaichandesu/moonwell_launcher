@@ -214,7 +214,7 @@ class _LeftPane extends StatelessWidget {
             Text(
               'Classic MMO Launcher',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: cs.onSurface.withOpacity(0.85),
+                color: cs.onSurface.withValues(alpha: 0.85),
               ),
             ),
             const SizedBox(height: 28),
@@ -289,7 +289,7 @@ class _LeftPane extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: cs.surfaceVariant.withOpacity(0.5),
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: cs.outline),
                 boxShadow: (deco.cardGlow),
@@ -332,7 +332,7 @@ class _GildedProgressBar extends StatelessWidget {
     return Container(
       height: 20,
       decoration: BoxDecoration(
-        color: cs.surfaceVariant,
+        color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: cs.outline),
       ),
@@ -352,7 +352,10 @@ class _GildedProgressBar extends StatelessWidget {
           // Subtle top highlight
           Align(
             alignment: Alignment.topCenter,
-            child: Container(height: 6, color: Colors.white.withOpacity(0.08)),
+            child: Container(
+              height: 6,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
           ),
         ],
       ),
@@ -446,7 +449,7 @@ class _PatchNotesPane extends StatelessWidget {
                               child: Text(
                                 s,
                                 style: TextStyle(
-                                  color: cs.onSurface.withOpacity(0.9),
+                                  color: cs.onSurface.withValues(alpha: 0.9),
                                 ),
                               ),
                             ),

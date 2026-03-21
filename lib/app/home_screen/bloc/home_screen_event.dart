@@ -5,14 +5,22 @@ sealed class HomeScreenEvent {}
 
 final class HomeScreenLoad extends HomeScreenEvent {}
 
-final class HomeScreenDownloadRequested extends HomeScreenEvent {}
+final class HomeScreenSyncRequested extends HomeScreenEvent {}
 
 final class HomeScreenOutputDirRequested extends HomeScreenEvent {}
 
-final class HomeScreenDownloadPaused extends HomeScreenEvent {}
+final class HomeScreenPauseRequested extends HomeScreenEvent {}
 
-final class HomeScreenDownloadProgressUpdated extends HomeScreenEvent {
-  final DownloadProgress progress;
+final class HomeScreenPlayRequested extends HomeScreenEvent {}
 
-  HomeScreenDownloadProgressUpdated(this.progress);
+final class HomeScreenSyncStatusChanged extends HomeScreenEvent {
+  final ClientSyncStatus status;
+
+  HomeScreenSyncStatusChanged(this.status);
+}
+
+final class HomeScreenSyncFailed extends HomeScreenEvent {
+  final Object error;
+
+  HomeScreenSyncFailed(this.error);
 }
