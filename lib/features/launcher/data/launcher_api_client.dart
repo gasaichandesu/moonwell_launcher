@@ -10,6 +10,7 @@ import 'package:moonwell_launcher/features/launcher/data/launcher_log_service.da
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest_file.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_exception.dart';
+import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_news_item.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_session.dart';
 
 @lazySingleton
@@ -72,6 +73,44 @@ class LauncherApiClient {
         'Launcher manifest request failed.',
         details: <String, Object?>{
           'endpoint': manifestUri.toString(),
+          'statusCode': error.response?.statusCode,
+          'dioType': error.type.name,
+          'responseBody': _summarizePayload(error.response?.data),
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw LauncherApiException(_extractErrorMessage(error));
+    }
+  }
+
+  Future<List<LauncherNewsItem>> fetchNews(String accessToken) async {
+    final newsUri = _resolveUri('api/launcher/news');
+
+    try {
+      final response = await _dio.getUri(
+        newsUri,
+        options: _authorizedOptions(accessToken),
+      );
+      final payload = _coerceMap(response.data);
+      final rawItems = payload['data'];
+      if (rawItems is! List) {
+        throw const LauncherApiException('Unexpected launcher news payload.');
+      }
+
+      return rawItems
+          .whereType<Map>()
+          .map(
+            (item) => LauncherNewsItem.fromJson(
+              item.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+          )
+          .toList(growable: false);
+    } on DioException catch (error, stackTrace) {
+      await _launcherLogService.error(
+        'Launcher news request failed.',
+        details: <String, Object?>{
+          'endpoint': newsUri.toString(),
           'statusCode': error.response?.statusCode,
           'dioType': error.type.name,
           'responseBody': _summarizePayload(error.response?.data),

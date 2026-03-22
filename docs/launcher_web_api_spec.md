@@ -31,6 +31,7 @@ The launcher uses these endpoints from `openapi.json`:
 1. `POST /api/launcher/login`
 2. `GET /api/launcher/manifest`
 3. `GET /api/launcher/download/{path}`
+4. `GET /api/launcher/news`
 
 Authentication sequence:
 
@@ -57,6 +58,13 @@ File download sequence:
 5. Download is written into `*.moonwell.part`.
 6. Downloaded file is verified against manifest `sha256`.
 7. Temporary file replaces the destination file only after successful verify.
+
+News sequence:
+
+1. After the launcher reaches the authenticated home screen, it requests `GET /api/launcher/news`.
+2. The response payload is read from the top-level `data` array.
+3. Each news item provides `id`, `title`, `body`, optional `image_url`, and `created_at`.
+4. News failures do not block patching or play flow; the launcher shows a local error state only inside the news panel.
 
 ## Installation Directory Rules
 

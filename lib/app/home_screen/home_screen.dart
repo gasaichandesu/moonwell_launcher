@@ -8,6 +8,7 @@ import 'package:moonwell_launcher/app/login_screen/login_screen.dart';
 import 'package:moonwell_launcher/app/theme/mw_theme.dart';
 import 'package:moonwell_launcher/features/launcher/application/client_sync_use_case.dart';
 import 'package:moonwell_launcher/features/launcher/data/game_installation_service.dart';
+import 'package:moonwell_launcher/features/launcher/data/launcher_api_client.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_session.dart';
 import 'package:moonwell_launcher/features/preferences/domain/repositories/preferences_repository.dart';
@@ -26,6 +27,7 @@ class HomeScreen extends StatelessWidget {
       create: (context) => HomeScreenBloc(
         clientSyncUseCase: getIt<ClientSyncUseCase>(),
         gameInstallationService: getIt<GameInstallationService>(),
+        launcherApiClient: getIt<LauncherApiClient>(),
         preferencesRepository: getIt<PreferencesRepository>(),
         session: session,
         manifest: manifest,

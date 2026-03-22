@@ -8,6 +8,7 @@ import 'package:moonwell_launcher/features/downloader/domain/entities/download_e
 import 'package:moonwell_launcher/features/downloader/domain/entities/download_progress.dart';
 import 'package:moonwell_launcher/features/launcher/application/client_sync_use_case.dart';
 import 'package:moonwell_launcher/features/launcher/data/game_installation_service.dart';
+import 'package:moonwell_launcher/features/launcher/data/launcher_api_client.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_manifest.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/client_sync_status.dart';
 import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_exception.dart';
@@ -21,11 +22,13 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
   HomeScreenBloc({
     required ClientSyncUseCase clientSyncUseCase,
     required GameInstallationService gameInstallationService,
+    required LauncherApiClient launcherApiClient,
     required PreferencesRepository preferencesRepository,
     required LauncherSession session,
     required ClientManifest manifest,
   }) : _clientSyncUseCase = clientSyncUseCase,
        _gameInstallationService = gameInstallationService,
+       _launcherApiClient = launcherApiClient,
        _preferencesRepository = preferencesRepository,
        _session = session,
        _manifest = manifest,
@@ -51,6 +54,7 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
 
   final ClientSyncUseCase _clientSyncUseCase;
   final GameInstallationService _gameInstallationService;
+  final LauncherApiClient _launcherApiClient;
   final PreferencesRepository _preferencesRepository;
 
   StreamSubscription<ClientSyncStatus>? _syncSubscription;
@@ -79,6 +83,30 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
         ),
       ),
     );
+
+    try {
+      final newsItems = await _launcherApiClient.fetchNews(
+        _session.accessToken,
+      );
+      emit(
+        HomeScreenState(
+          model: state.model.copyWith(
+            newsItems: newsItems,
+            isLoadingNews: false,
+            newsErrorMessage: null,
+          ),
+        ),
+      );
+    } catch (error) {
+      emit(
+        HomeScreenState(
+          model: state.model.copyWith(
+            isLoadingNews: false,
+            newsErrorMessage: _formatError(error),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _onHomeScreenSyncRequested(
@@ -238,14 +266,16 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
           phase: HomeScreenPhase.idle,
           isAuthenticated: false,
           progress: const DownloadProgress.initial(),
-          statusText:
-              'Сессия завершена. Войдите снова.',
+          statusText: 'Сессия завершена. Войдите снова.',
           currentPath: null,
           errorMessage: null,
           localBuildHash: null,
           remoteBuildHash: null,
           processedFiles: 0,
           totalFiles: 0,
+          newsItems: const [],
+          isLoadingNews: false,
+          newsErrorMessage: null,
         ),
       ),
     );

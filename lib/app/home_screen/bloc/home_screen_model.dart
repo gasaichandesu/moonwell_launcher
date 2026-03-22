@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:moonwell_launcher/features/downloader/domain/entities/download_progress.dart';
+import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_news_item.dart';
 
 enum HomeScreenPhase {
   idle,
@@ -27,6 +28,9 @@ final class HomeScreenModel {
   final String? remoteBuildHash;
   final int processedFiles;
   final int totalFiles;
+  final List<LauncherNewsItem> newsItems;
+  final bool isLoadingNews;
+  final String? newsErrorMessage;
 
   const HomeScreenModel({
     required this.progress,
@@ -41,6 +45,9 @@ final class HomeScreenModel {
     required this.remoteBuildHash,
     required this.processedFiles,
     required this.totalFiles,
+    required this.newsItems,
+    required this.isLoadingNews,
+    required this.newsErrorMessage,
   });
 
   const HomeScreenModel.initial()
@@ -55,7 +62,10 @@ final class HomeScreenModel {
       localBuildHash = null,
       remoteBuildHash = null,
       processedFiles = 0,
-      totalFiles = 0;
+      totalFiles = 0,
+      newsItems = const <LauncherNewsItem>[],
+      isLoadingNews = true,
+      newsErrorMessage = null;
 
   bool get isBusy =>
       phase == HomeScreenPhase.authenticating ||
@@ -78,6 +88,9 @@ final class HomeScreenModel {
     Object? remoteBuildHash = _sentinel,
     int? processedFiles,
     int? totalFiles,
+    List<LauncherNewsItem>? newsItems,
+    bool? isLoadingNews,
+    Object? newsErrorMessage = _sentinel,
   }) {
     return HomeScreenModel(
       progress: progress ?? this.progress,
@@ -102,6 +115,11 @@ final class HomeScreenModel {
           : remoteBuildHash as String?,
       processedFiles: processedFiles ?? this.processedFiles,
       totalFiles: totalFiles ?? this.totalFiles,
+      newsItems: newsItems ?? this.newsItems,
+      isLoadingNews: isLoadingNews ?? this.isLoadingNews,
+      newsErrorMessage: newsErrorMessage == _sentinel
+          ? this.newsErrorMessage
+          : newsErrorMessage as String?,
     );
   }
 }

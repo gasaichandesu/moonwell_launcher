@@ -4,6 +4,7 @@ import 'package:moonwell_launcher/app/home_screen/bloc/home_screen_bloc.dart';
 import 'package:moonwell_launcher/app/home_screen/bloc/home_screen_model.dart';
 import 'package:moonwell_launcher/app/home_screen/widgets/gilded_progress_bar.dart';
 import 'package:moonwell_launcher/app/theme/mw_theme.dart';
+import 'package:moonwell_launcher/features/launcher/domain/entities/launcher_news_item.dart';
 import 'package:pixelarticons/pixel.dart';
 
 class HomeScreenContent extends StatelessWidget {
@@ -19,14 +20,14 @@ class HomeScreenContent extends StatelessWidget {
       padding: const EdgeInsets.only(top: 36),
       child: Column(
         children: [
-          // Main content area
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Left panel — News
-                Expanded(flex: 3, child: _NewsPanel(cs: cs)),
-                // Right panel — Status & Controls
+                Expanded(
+                  flex: 3,
+                  child: _NewsPanel(model: model, cs: cs),
+                ),
                 SizedBox(
                   width: 320,
                   child: _RightPanel(model: model, cs: cs),
@@ -34,7 +35,6 @@ class HomeScreenContent extends StatelessWidget {
               ],
             ),
           ),
-          // Bottom bar
           _BottomBar(model: model, cs: cs),
         ],
       ),
@@ -42,11 +42,10 @@ class HomeScreenContent extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// News panel (left side)
-// ---------------------------------------------------------------------------
 class _NewsPanel extends StatelessWidget {
-  const _NewsPanel({required this.cs});
+  const _NewsPanel({required this.model, required this.cs});
+
+  final HomeScreenModel model;
   final ColorScheme cs;
 
   @override
@@ -56,7 +55,6 @@ class _NewsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo
           Center(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -68,13 +66,12 @@ class _NewsPanel extends StatelessWidget {
             ),
           ),
           Text(
-            'Новости',
+            '\u041d\u043e\u0432\u043e\u0441\u0442\u0438',
             style: Theme.of(
               context,
             ).textTheme.titleLarge?.copyWith(color: cs.onSurface),
           ),
           const SizedBox(height: 12),
-          // News list
           Expanded(
             child: ShaderMask(
               shaderCallback: (bounds) => LinearGradient(
@@ -84,35 +81,80 @@ class _NewsPanel extends StatelessWidget {
                 stops: const [0.0, 0.85, 1.0],
               ).createShader(bounds),
               blendMode: BlendMode.dstIn,
-              child: ListView(
-                padding: const EdgeInsets.only(right: 16, bottom: 24),
-                children: const [
-                  _NewsCard(
-                    title: 'Добро пожаловать в MoonWell!',
-                    description:
-                        'Мы рады приветствовать вас на нашем сервере. '
-                        'Установите клиент, авторизуйтесь и окунитесь '
-                        'в мир приключений!',
-                  ),
-                  SizedBox(height: 10),
-                  _NewsCard(
-                    title: 'Обновление клиента',
-                    description:
-                        'Лаунчер автоматически проверит и загрузит '
-                        'последние обновления игрового клиента при входе.',
-                  ),
-                ],
-              ),
+              child: _buildNewsBody(context),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildNewsBody(BuildContext context) {
+    if (model.isLoadingNews) {
+      return Center(
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: CircularProgressIndicator(strokeWidth: 2.2, color: cs.primary),
+        ),
+      );
+    }
+
+    if (model.newsItems.isEmpty && model.newsErrorMessage != null) {
+      return ListView(
+        padding: const EdgeInsets.only(right: 16, bottom: 24),
+        children: [
+          _NewsStatusCard(
+            icon: Icons.cloud_off_rounded,
+            title:
+                '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c '
+                '\u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c '
+                '\u043d\u043e\u0432\u043e\u0441\u0442\u0438',
+            description: model.newsErrorMessage!,
+          ),
+        ],
+      );
+    }
+
+    if (model.newsItems.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.only(right: 16, bottom: 24),
+        children: const [
+          _NewsStatusCard(
+            icon: Icons.inbox_outlined,
+            title:
+                '\u041d\u043e\u0432\u043e\u0441\u0442\u0435\u0439 '
+                '\u043f\u043e\u043a\u0430 \u043d\u0435\u0442',
+            description:
+                '\u041a\u043e\u0433\u0434\u0430 \u0432 API \u043f\u043e\u044f'
+                '\u0432\u044f\u0442\u0441\u044f \u043f\u0443\u0431\u043b\u0438'
+                '\u043a\u0430\u0446\u0438\u0438, \u043e\u043d\u0438 '
+                '\u043f\u043e\u044f\u0432\u044f\u0442\u0441\u044f \u0437\u0434'
+                '\u0435\u0441\u044c.',
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(right: 16, bottom: 24),
+      itemCount: model.newsItems.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        return _NewsCard(item: model.newsItems[index]);
+      },
+    );
+  }
 }
 
-class _NewsCard extends StatelessWidget {
-  const _NewsCard({required this.title, required this.description});
+class _NewsStatusCard extends StatelessWidget {
+  const _NewsStatusCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
   final String title;
   final String description;
 
@@ -130,6 +172,8 @@ class _NewsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(icon, color: cs.tertiary),
+          const SizedBox(height: 12),
           Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -151,9 +195,84 @@ class _NewsCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Right panel (status & controls)
-// ---------------------------------------------------------------------------
+class _NewsCard extends StatelessWidget {
+  const _NewsCard({required this.item});
+
+  final LauncherNewsItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface.withAlpha(140),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withAlpha(100)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            item.title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: cs.tertiary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (item.createdAt != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _formatCreatedAt(item.createdAt!),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
+          if (item.imageUrl != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AspectRatio(
+                aspectRatio: 16 / 7,
+                child: Image.network(
+                  item.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: cs.surface.withAlpha(120),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            item.body,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: cs.onSurface.withAlpha(200),
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatCreatedAt(DateTime value) {
+    final localValue = value.toLocal();
+    final day = localValue.day.toString().padLeft(2, '0');
+    final month = localValue.month.toString().padLeft(2, '0');
+    final year = localValue.year.toString();
+    return '$day.$month.$year';
+  }
+}
+
 class _RightPanel extends StatelessWidget {
   const _RightPanel({required this.model, required this.cs});
 
@@ -183,7 +302,7 @@ class _RightPanel extends StatelessWidget {
                 HomeScreenLogoutRequested(),
               ),
               icon: const Icon(Icons.logout_rounded, size: 16),
-              label: const Text('Выйти'),
+              label: const Text('\u0412\u044b\u0439\u0442\u0438'),
               style: TextButton.styleFrom(
                 foregroundColor: cs.onSurfaceVariant,
                 padding: const EdgeInsets.symmetric(
@@ -196,7 +315,6 @@ class _RightPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Spacer(),
-          // Folder selector
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => context.read<HomeScreenBloc>().add(
@@ -215,7 +333,9 @@ class _RightPanel extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      model.outputPath?.toFilePath() ?? 'Выбрать папку',
+                      model.outputPath?.toFilePath() ??
+                          '\u0412\u044b\u0431\u0440\u0430\u0442\u044c '
+                              '\u043f\u0430\u043f\u043a\u0443',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: cs.onSurfaceVariant,
@@ -233,7 +353,6 @@ class _RightPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // Status
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -263,7 +382,8 @@ class _RightPanel extends StatelessWidget {
                 if (model.totalFiles > 0) ...[
                   const SizedBox(height: 6),
                   Text(
-                    'Файлы: ${model.processedFiles}/${model.totalFiles}',
+                    '\u0424\u0430\u0439\u043b\u044b: '
+                    '${model.processedFiles}/${model.totalFiles}',
                     style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                   ),
                 ],
@@ -278,12 +398,12 @@ class _RightPanel extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          // Build hashes
           if (model.remoteBuildHash != null || model.localBuildHash != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Build: ${_shortHash(model.localBuildHash)} / ${_shortHash(model.remoteBuildHash)}',
+                'Build: ${_shortHash(model.localBuildHash)} / '
+                '${_shortHash(model.remoteBuildHash)}',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
               ),
@@ -294,15 +414,18 @@ class _RightPanel extends StatelessWidget {
   }
 
   String _shortHash(String? hash) {
-    if (hash == null || hash.isEmpty) return '—';
-    if (hash.length <= 12) return hash;
+    if (hash == null || hash.isEmpty) {
+      return '-';
+    }
+
+    if (hash.length <= 12) {
+      return hash;
+    }
+
     return '${hash.substring(0, 8)}...${hash.substring(hash.length - 4)}';
   }
 }
 
-// ---------------------------------------------------------------------------
-// Bottom bar (play button, progress, version)
-// ---------------------------------------------------------------------------
 class _BottomBar extends StatelessWidget {
   const _BottomBar({required this.model, required this.cs});
 
@@ -327,7 +450,6 @@ class _BottomBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Progress bar (only when syncing)
           if (model.isSyncing) ...[
             Row(
               children: [
@@ -350,10 +472,8 @@ class _BottomBar extends StatelessWidget {
             ),
             const SizedBox(height: 8),
           ],
-          // Bottom row: play + status
           Row(
             children: [
-              // Play button
               SizedBox(
                 height: 44,
                 child: ElevatedButton.icon(
@@ -379,7 +499,6 @@ class _BottomBar extends StatelessWidget {
                 ),
               ],
               const SizedBox(width: 16),
-              // Status ticker
               Expanded(
                 child: Container(
                   height: 38,
@@ -436,36 +555,64 @@ class _BottomBar extends StatelessWidget {
   }
 
   String _resolvePrimaryLabel(HomeScreenModel model) {
-    if (model.isSyncing) return 'Обновление...';
-    if (model.canPlay) return 'Играть';
-    return model.hasClientExecutable ? 'Обновить' : 'Установить';
+    if (model.isSyncing) {
+      return '\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435...';
+    }
+
+    if (model.canPlay) {
+      return '\u0418\u0433\u0440\u0430\u0442\u044c';
+    }
+
+    return model.hasClientExecutable
+        ? '\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c'
+        : '\u0423\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c';
   }
 
   IconData _resolvePrimaryIcon(HomeScreenModel model) {
-    if (model.canPlay) return Icons.play_arrow_rounded;
+    if (model.canPlay) {
+      return Icons.play_arrow_rounded;
+    }
+
     return Icons.download_rounded;
   }
 
   String _resolveSecondaryLabel(HomeScreenModel model) {
-    if (model.isSyncing) return 'Пауза';
-    if (model.canPlay) return 'Проверить';
-    return 'Папка';
+    if (model.isSyncing) {
+      return '\u041f\u0430\u0443\u0437\u0430';
+    }
+
+    if (model.canPlay) {
+      return '\u041f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c';
+    }
+
+    return '\u041f\u0430\u043f\u043a\u0430';
   }
 
   IconData _resolveSecondaryIcon(HomeScreenModel model) {
-    if (model.isSyncing) return Pixel.pause;
-    if (model.canPlay) return Icons.refresh_rounded;
+    if (model.isSyncing) {
+      return Pixel.pause;
+    }
+
+    if (model.canPlay) {
+      return Icons.refresh_rounded;
+    }
+
     return Pixel.folder;
   }
 
   String _formatSpeed(int bytesPerSecond) {
-    if (bytesPerSecond <= 0) return '—';
+    if (bytesPerSecond <= 0) {
+      return '-';
+    }
+
     if (bytesPerSecond >= 1024 * 1024) {
       return '${(bytesPerSecond / (1024 * 1024)).toStringAsFixed(2)} MB/s';
     }
+
     if (bytesPerSecond >= 1024) {
       return '${(bytesPerSecond / 1024).toStringAsFixed(1)} KB/s';
     }
+
     return '$bytesPerSecond B/s';
   }
 }
