@@ -25,10 +25,7 @@ class HomeScreenContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Left panel — News
-                Expanded(
-                  flex: 3,
-                  child: _NewsPanel(cs: cs),
-                ),
+                Expanded(flex: 3, child: _NewsPanel(cs: cs)),
                 // Right panel — Status & Controls
                 SizedBox(
                   width: 320,
@@ -72,9 +69,9 @@ class _NewsPanel extends StatelessWidget {
           ),
           Text(
             'Новости',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: cs.onSurface,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: cs.onSurface),
           ),
           const SizedBox(height: 12),
           // News list
@@ -83,11 +80,7 @@ class _NewsPanel extends StatelessWidget {
               shaderCallback: (bounds) => LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white,
-                  Colors.white.withAlpha(0),
-                ],
+                colors: [Colors.white, Colors.white, Colors.white.withAlpha(0)],
                 stops: const [0.0, 0.85, 1.0],
               ).createShader(bounds),
               blendMode: BlendMode.dstIn,
@@ -183,6 +176,25 @@ class _RightPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => context.read<HomeScreenBloc>().add(
+                HomeScreenLogoutRequested(),
+              ),
+              icon: const Icon(Icons.logout_rounded, size: 16),
+              label: const Text('Выйти'),
+              style: TextButton.styleFrom(
+                foregroundColor: cs.onSurfaceVariant,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           const Spacer(),
           // Folder selector
           GestureDetector(
@@ -211,7 +223,11 @@ class _RightPanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Icon(Icons.edit, size: 14, color: cs.onSurfaceVariant.withAlpha(120)),
+                  Icon(
+                    Icons.edit,
+                    size: 14,
+                    color: cs.onSurfaceVariant.withAlpha(120),
+                  ),
                 ],
               ),
             ),
@@ -230,7 +246,10 @@ class _RightPanel extends StatelessWidget {
               children: [
                 Text(
                   model.statusText,
-                  style: TextStyle(color: cs.onSurface.withAlpha(180), fontSize: 13),
+                  style: TextStyle(
+                    color: cs.onSurface.withAlpha(180),
+                    fontSize: 13,
+                  ),
                 ),
                 if (model.currentPath != null) ...[
                   const SizedBox(height: 6),
@@ -302,10 +321,7 @@ class _BottomBar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            MWColors.abyss.withAlpha(0),
-            MWColors.abyss.withAlpha(230),
-          ],
+          colors: [MWColors.abyss.withAlpha(0), MWColors.abyss.withAlpha(230)],
         ),
       ),
       child: Column(

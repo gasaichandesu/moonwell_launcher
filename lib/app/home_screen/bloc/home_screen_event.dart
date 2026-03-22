@@ -13,6 +13,8 @@ final class HomeScreenPauseRequested extends HomeScreenEvent {}
 
 final class HomeScreenPlayRequested extends HomeScreenEvent {}
 
+final class HomeScreenLogoutRequested extends HomeScreenEvent {}
+
 final class HomeScreenSyncStatusChanged extends HomeScreenEvent {
   final ClientSyncStatus status;
 

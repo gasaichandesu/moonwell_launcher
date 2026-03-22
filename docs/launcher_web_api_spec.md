@@ -37,7 +37,16 @@ Authentication sequence:
 1. User enters launcher credentials.
 2. Launcher requests a bearer token from `POST /api/launcher/login`.
 3. Launcher requests the manifest from `GET /api/launcher/manifest`.
-4. `LauncherSession` and `ClientManifest` are passed into the home screen.
+4. Successful login persists `LauncherSession` locally.
+5. On next launcher start, saved session is reused to fetch manifest again.
+6. `LauncherSession` and `ClientManifest` are passed into the home screen.
+
+Logout sequence:
+
+1. User presses `Logout`.
+2. Launcher cancels any active sync.
+3. Launcher clears the locally persisted `LauncherSession`.
+4. Launcher returns to the login screen.
 
 File download sequence:
 

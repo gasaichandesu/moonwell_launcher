@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:moonwell_launcher/app/home_screen/bloc/home_screen_bloc.dart';
 import 'package:moonwell_launcher/app/home_screen/home_screen_content.dart';
+import 'package:moonwell_launcher/app/login_screen/login_screen.dart';
 import 'package:moonwell_launcher/app/theme/mw_theme.dart';
 import 'package:moonwell_launcher/features/launcher/application/client_sync_use_case.dart';
 import 'package:moonwell_launcher/features/launcher/data/game_installation_service.dart';
@@ -28,35 +30,50 @@ class HomeScreen extends StatelessWidget {
         session: session,
         manifest: manifest,
       ),
-      child: Scaffold(
-        body: Stack(
-          children: [
-            // Background image
-            Positioned.fill(
-              child: Image.asset('assets/background.png', fit: BoxFit.cover),
+      child: BlocListener<HomeScreenBloc, HomeScreenState>(
+        listenWhen: (previous, current) =>
+            previous.model.isAuthenticated && !current.model.isAuthenticated,
+        listener: (context, state) async {
+          await Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => const LoginScreen(),
+              transitionsBuilder: (_, animation, __, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 250),
             ),
-            // Gradient overlay
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      MWColors.abyss.withAlpha(180),
-                      MWColors.abyss.withAlpha(220),
-                      MWColors.abyss.withAlpha(240),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
+          );
+        },
+        child: Scaffold(
+          body: Stack(
+            children: [
+              // Background image
+              Positioned.fill(
+                child: Image.asset('assets/background.png', fit: BoxFit.cover),
+              ),
+              // Gradient overlay
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        MWColors.abyss.withAlpha(180),
+                        MWColors.abyss.withAlpha(220),
+                        MWColors.abyss.withAlpha(240),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
                   ),
                 ),
               ),
-            ),
-            // Main content
-            const Positioned.fill(child: HomeScreenContent()),
-            // Custom title bar
-            const Positioned(top: 0, left: 0, right: 0, child: _TitleBar()),
-          ],
+              // Main content
+              const Positioned.fill(child: HomeScreenContent()),
+              // Custom title bar
+              const Positioned(top: 0, left: 0, right: 0, child: _TitleBar()),
+            ],
+          ),
         ),
       ),
     );
@@ -95,7 +112,9 @@ class _TitleBar extends StatelessWidget {
             ),
             _TitleBarButton(
               icon: Icons.close,
-              onTap: () => SystemNavigator.pop(),
+              onTap: () {
+                unawaited(windowManager.destroy());
+              },
               color: MWColors.error,
             ),
           ],

@@ -29,17 +29,20 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
        _preferencesRepository = preferencesRepository,
        _session = session,
        _manifest = manifest,
-       super(HomeScreenState(
-         model: HomeScreenModel.initial().copyWith(
-           isAuthenticated: true,
-           remoteBuildHash: manifest.buildHash,
+       super(
+         HomeScreenState(
+           model: HomeScreenModel.initial().copyWith(
+             isAuthenticated: true,
+             remoteBuildHash: manifest.buildHash,
+           ),
          ),
-       )) {
+       ) {
     on<HomeScreenLoad>(_onHomeScreenLoad);
     on<HomeScreenSyncRequested>(_onHomeScreenSyncRequested);
     on<HomeScreenOutputDirRequested>(_onHomeScreenOutputDirRequested);
     on<HomeScreenPauseRequested>(_onHomeScreenPauseRequested);
     on<HomeScreenPlayRequested>(_onHomeScreenPlayRequested);
+    on<HomeScreenLogoutRequested>(_onHomeScreenLogoutRequested);
     on<HomeScreenSyncStatusChanged>(_onHomeScreenSyncStatusChanged);
     on<HomeScreenSyncFailed>(_onHomeScreenSyncFailed);
 
@@ -218,6 +221,34 @@ class HomeScreenBloc extends Bloc<HomeScreenEvent, HomeScreenState> {
         ),
       );
     }
+  }
+
+  Future<void> _onHomeScreenLogoutRequested(
+    HomeScreenLogoutRequested event,
+    Emitter<HomeScreenState> emit,
+  ) async {
+    _pauseRequested = true;
+    await _syncSubscription?.cancel();
+    _syncSubscription = null;
+    await _preferencesRepository.clearLauncherSession();
+
+    emit(
+      HomeScreenState(
+        model: state.model.copyWith(
+          phase: HomeScreenPhase.idle,
+          isAuthenticated: false,
+          progress: const DownloadProgress.initial(),
+          statusText:
+              'Сессия завершена. Войдите снова.',
+          currentPath: null,
+          errorMessage: null,
+          localBuildHash: null,
+          remoteBuildHash: null,
+          processedFiles: 0,
+          totalFiles: 0,
+        ),
+      ),
+    );
   }
 
   Future<void> _onHomeScreenSyncStatusChanged(

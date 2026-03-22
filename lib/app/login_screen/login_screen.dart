@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:moonwell_launcher/app/home_screen/home_screen.dart';
 import 'package:moonwell_launcher/app/theme/mw_theme.dart';
 import 'package:moonwell_launcher/features/launcher/data/launcher_api_client.dart';
+import 'package:moonwell_launcher/features/preferences/domain/repositories/preferences_repository.dart';
 import 'package:moonwell_launcher/service_container.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -42,8 +44,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final api = getIt<LauncherApiClient>();
+      final preferencesRepository = getIt<PreferencesRepository>();
       final session = await api.login(username: username, password: password);
       final manifest = await api.fetchManifest(session.accessToken);
+      await preferencesRepository.setLauncherSession(session);
 
       if (!mounted) return;
 
@@ -222,7 +226,9 @@ class _TitleBar extends StatelessWidget {
             ),
             _TitleBarButton(
               icon: Icons.close,
-              onTap: () => SystemNavigator.pop(),
+              onTap: () {
+                unawaited(windowManager.destroy());
+              },
               color: MWColors.error,
             ),
           ],
