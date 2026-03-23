@@ -4,40 +4,26 @@ part 'mw_colors.dart';
 part 'mw_decorations.dart';
 
 ThemeData moonWellTheme() {
-  const cs = ColorScheme(
+  const cs = ColorScheme.dark(
     brightness: Brightness.dark,
-    primary: MWColors.gold,
-    onPrimary: Color(0xFF1B1202),
-    primaryContainer: MWColors.goldDark,
-    onPrimaryContainer: Color(0xFFFFF0C2),
+    primary: Color(0xFF5460A2),
+    onPrimary: Color(0xFFDDE0FB),
 
-    secondary: Color(0xFFC08A2E), // bronze accent
-    onSecondary: Color(0xFF201300),
-    secondaryContainer: Color(0xFF3B2A00),
-    onSecondaryContainer: Color(0xFFF6E2B6),
+    secondary: Color(0xFF5F6BD2),
+    onSecondary: Color(0xFFDDE0FB),
 
-    tertiary: MWColors.moonBlue, // moon-glow accent
-    onTertiary: Color(0xFF081120),
-    tertiaryContainer: Color(0xFF143A66),
-    onTertiaryContainer: Color(0xFFD9EBFF),
+    tertiary: Color(0xFF6494EB),
+    onTertiary: Color(0xFF090F2B),
 
-    error: Color(0xFFFFB4AB),
-    onError: Color(0xFF690005),
-    errorContainer: Color(0xFF93000A),
-    onErrorContainer: Color(0xFFFFDAD6),
+    error: Color(0xFFD86A8A),
+    onError: Color(0xFF090F2B),
 
-    surface: MWColors.abyss,
-    onSurface: Color(0xFFE5EAF6),
-    surfaceContainerHighest: MWColors.stormNavy,
-    onSurfaceVariant: Color(0xFFC3C8D6),
+    surface: Color(0xFF1A2759),
+    onSurface: Color(0xFFDDE0FB),
 
-    outline: MWColors.outline,
-    outlineVariant: Color(0xFF40495C),
-    shadow: Colors.black,
-    scrim: Colors.black87,
-    inverseSurface: Color(0xFFE5EAF6),
-    onInverseSurface: Color(0xFF11151E),
-    inversePrimary: Color(0xFFF0D072),
+    outline: Color(0xFF4B4E6E),
+    shadow: Color(0xFF000000),
+    scrim: Color(0xCC000000),
   );
 
   final base = ThemeData(
@@ -88,7 +74,7 @@ ThemeData moonWellTheme() {
         side: BorderSide(color: MWColors.outline.withAlpha(150)),
         borderRadius: BorderRadius.circular(20),
       ),
-      shadowColor: MWColors.moonBlue.withAlpha(63),
+      shadowColor: MWColors.tertiary.withAlpha(63),
     ),
 
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -103,16 +89,14 @@ ThemeData moonWellTheme() {
           TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Cinzel'),
         ),
         elevation: const WidgetStatePropertyAll(6),
-        shadowColor: WidgetStatePropertyAll(MWColors.moonBlue.withAlpha(89)),
+        shadowColor: WidgetStatePropertyAll(MWColors.tertiary.withAlpha(89)),
         backgroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
-            return MWColors.gold.withAlpha(115);
+            return MWColors.primary.withAlpha(115);
           }
           return cs.primary;
         }),
-        foregroundColor: const WidgetStatePropertyAll(
-          Color(0xFF1B1202),
-        ), // dark text on gold
+        foregroundColor: const WidgetStatePropertyAll(Color(0xFFDDE0FB)),
       ),
     ),
 
@@ -136,7 +120,7 @@ ThemeData moonWellTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: ButtonStyle(
         side: WidgetStatePropertyAll(
-          BorderSide(color: MWColors.outlineGold.withAlpha(230)),
+          BorderSide(color: MWColors.outline.withAlpha(230)),
         ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -211,14 +195,14 @@ ThemeData moonWellTheme() {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: <Color>[
-            MWColors.goldSoft, // highlight
-            MWColors.gold, // body
-            Color(0xFFC58A1E), // warm edge
+            Color(0xFF7A85CC), // highlight
+            Color(0xFF5460A2), // body
+            Color(0xFF3E4880), // edge
           ],
           stops: [0.0, 0.55, 1.0],
         ),
         textGlow: Shadow(
-          color: Color(0x446BA3FF), // moon-glow
+          color: Color(0x446494EB),
           blurRadius: 14,
           offset: Offset(0, 0),
         ),

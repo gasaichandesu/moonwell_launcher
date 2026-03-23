@@ -1,25 +1,22 @@
 part of 'mw_theme.dart';
 
-/// Core palette derived from the logo
+/// Core palette
 class MWColors {
-  // “Night sky” blues
-  static const Color abyss = Color(0xFF0B101A); // page bg
-  static const Color deepNavy = Color(0xFF0F1522); // surfaces
-  static const Color stormNavy = Color(0xFF1A2233); // elevated surfaces
-  static const Color moonBlue = Color(
-    0xFF6BA3FF,
-  ); // tertiary accent (moonlight)
+  // Surface & background
+  static const Color abyss = Color(0xFF090F2B); // page bg
+  static const Color deepNavy = Color(0xFF111840); // surfaces
+  static const Color stormNavy = Color(0xFF1A2759); // elevated surfaces
 
-  // “Ornate gold”
-  static const Color gold = Color(0xFFE5B74A); // primary
-  static const Color goldDark = Color(0xFF7A5A00); // primary container
-  static const Color goldSoft = Color(0xFFF3D98C); // gradient highlight
+  // Primary & secondary
+  static const Color primary = Color(0xFF5460A2);
+  static const Color secondary = Color(0xFF5F6BD2);
+  static const Color tertiary = Color(0xFF6494EB);
 
   // Lines & states
-  static const Color outline = Color(0xFF2B3242);
-  static const Color outlineGold = Color(0xFF7C6A3A);
+  static const Color outline = Color(0xFF4B4E6E);
 
   // Semantic
   static const Color success = Color(0xFF3DDC97);
   static const Color warning = Color(0xFFF0B429);
+  static const Color error = Color(0xFFD86A8A);
 }

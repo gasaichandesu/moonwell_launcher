@@ -7,19 +7,28 @@
         {
             "name": "moonwell_launcher",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "toolArgs": [
+                "--dart-define=MOONWELL_API_BASE_URL=https://moon-well.online"
+            ]
         },
         {
             "name": "moonwell_launcher (profile mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "flutterMode": "profile",
+            "toolArgs": [
+                "--dart-define=MOONWELL_API_BASE_URL=https://moon-well.online"
+            ]
         },
         {
             "name": "moonwell_launcher (release mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "flutterMode": "release",
+            "toolArgs": [
+                "--dart-define=MOONWELL_API_BASE_URL=https://moon-well.online"
+            ]
         }
     ]
 }
